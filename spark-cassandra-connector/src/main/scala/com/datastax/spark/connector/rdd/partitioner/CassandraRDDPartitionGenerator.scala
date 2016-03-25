@@ -21,9 +21,11 @@ class CassandraRDDPartitioner[Key : ClassTag, V](
   val partitions: Seq[CassandraPartition],
   tableDef: TableDef,
   connector: CassandraConnector,
-  tokenBounds: (V, V))(
+  tokenBounds: (Token[V], Token[V]))(
 implicit
   rwf:RowWriterFactory[Key]) extends Partitioner {
+
+  implicit val tokenOrdering = tokenBounds._1.ord
 
   val extractedPartitions = partitions
     .map(cqlPartition => (cqlPartition.index, cqlPartition.tokenRanges))
@@ -48,11 +50,13 @@ implicit
   }
 
   def indexOfPartitionContaining(token: com.datastax.driver.core.Token): Int = {
-    0
-    /*
-    val tokenValue = token.asInstanceOf[Ordered[V]]
+    val tokenValue = token.getValue.asInstanceOf[V]
     val minTokenValue = minToken
     val maxTokenValue = maxToken
+
+    (tokenValue) < (minTokenValue.value)
+    1
+    /*
     partitions.find { case (index, ranges) =>
       ranges.exists{ case (start, end, wrap) =>
           if (end == minTokenValue && start < tokenValue) {
@@ -196,7 +200,7 @@ class CassandraRDDPartitionGenerator[V, T <: Token[V]](
       partitions,
       tableDef,
       connector,
-      (tokenFactory.minToken.value, tokenFactory.maxToken.value))
+      (tokenFactory.minToken, tokenFactory.maxToken))
   }
 
 }
